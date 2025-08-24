@@ -43,8 +43,12 @@ if st.button("Add Note"):
 # Display existing notes
 st.subheader("Your Notes:")
 notes = get_all_notes()
-if notes:
-    for note_id, note_text in notes:
+
+if notes and isinstance(notes, list):
+    for note in notes:
+        if len(note) != 2:
+            continue  # skip malformed entries
+        note_id, note_text = note
         col1, col2 = st.columns([8, 1])
         col1.write(note_text)
         if col2.button("❌", key=f"delete_{note_id}"):
