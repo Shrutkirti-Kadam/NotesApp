@@ -1,61 +1,71 @@
 import streamlit as st
-import psycopg2
-import os
+import sqlite3
 
-# Load DB credentials from environment variables
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_NAME = os.getenv("DB_NAME", "notesdb")
-DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASS = os.getenv("DB_PASS", "password")
+# --- Database Setup ---
+def init_db():
+    conn = sqlite3.connect("notes.db")  # File-based DB
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
 
-# Connect to PostgreSQL
-conn = psycopg2.connect(
-    host="localhost",
-    database="notesdb",
-    user="postgres",
-    password="BATANDBALL",
-    port="5432"
-)
-cur = conn.cursor()
+def add_note(title, content):
+    conn = sqlite3.connect("notes.db")
+    c = conn.cursor()
+    c.execute("INSERT INTO notes (title, content) VALUES (?, ?)", (title, content))
+    conn.commit()
+    conn.close()
 
-# Create table if not exists
-cur.execute("""
-CREATE TABLE IF NOT EXISTS notes (
-    id SERIAL PRIMARY KEY,
-    content TEXT NOT NULL,
-    is_done BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-""")
-conn.commit()
+def get_notes():
+    conn = sqlite3.connect("notes.db")
+    c = conn.cursor()
+    c.execute("SELECT * FROM notes")
+    data = c.fetchall()
+    conn.close()
+    return data
 
-# --- Streamlit UI ---
+def delete_note(note_id):
+    conn = sqlite3.connect("notes.db")
+    c = conn.cursor()
+    c.execute("DELETE FROM notes WHERE id=?", (note_id,))
+    conn.commit()
+    conn.close()
+
+# --- Streamlit App ---
 st.title("📝 Notes App")
 
-# Add a new note
-note = st.text_input("Enter a new note:")
+# Initialize DB
+init_db()
+
+# Add new note
+st.subheader("Add a new note")
+title = st.text_input("Title")
+content = st.text_area("Content")
+
 if st.button("Add Note"):
-    cur.execute("INSERT INTO notes (content) VALUES (%s)", (note,))
-    conn.commit()
-    st.success("Note added!")
+    if title and content:
+        add_note(title, content)
+        st.success("✅ Note added!")
+    else:
+        st.error("⚠️ Please fill in both fields.")
 
-# Display notes
-cur.execute("SELECT id, content, is_done FROM notes ORDER BY id DESC")
-rows = cur.fetchall()
+# Show existing notes
+st.subheader("Your Notes")
+notes = get_notes()
 
-st.subheader("Your Notes:")
-for r in rows:
-    note_id, content, is_done = r
-    col1, col2, col3 = st.columns([4,1,1])
-    with col1:
-        st.write(f"{'✅' if is_done else '📝'} {content}")
-    with col2:
-        if st.button("✔️", key=f"done{note_id}"):
-            cur.execute("UPDATE notes SET is_done = TRUE WHERE id = %s", (note_id,))
-            conn.commit()
-            st.rerun()
-    with col3:
-        if st.button("❌", key=f"delete{note_id}"):
-            cur.execute("DELETE FROM notes WHERE id = %s", (note_id,))
-            conn.commit()
-            st.rerun()
+if notes:
+    for note in notes:
+        st.markdown(f"### {note[1]}")
+        st.write(note[2])
+        if st.button("Delete", key=note[0]):
+            delete_note(note[0])
+            st.warning(f"❌ Deleted note: {note[1]}")
+            st.experimental_rerun()
+else:
+    st.info("No notes yet. Add one above 👆")
