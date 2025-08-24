@@ -7,16 +7,17 @@ if 'notes_updated' not in st.session_state:
     st.session_state['notes_updated'] = False
 
 # ---------- DATABASE SETUP ----------
+# ---------- DATABASE SETUP ----------
 DB_PATH = "notes.db"
 
-# Connect to SQLite with thread safety for Streamlit
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 c = conn.cursor()
 
-# Drop table if old schema exists (optional, remove if you want to keep old notes)
-# c.execute("DROP TABLE IF EXISTS notes")
+# Drop old table (fix schema issues)
+c.execute("DROP TABLE IF EXISTS notes")
+conn.commit()
 
-# Create table if it doesn't exist
+# Create table with correct schema
 c.execute('''
 CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,6 +25,7 @@ CREATE TABLE IF NOT EXISTS notes (
 )
 ''')
 conn.commit()
+
 
 # ---------- FUNCTIONS ----------
 def add_note(note_text):
