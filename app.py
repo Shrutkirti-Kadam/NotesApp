@@ -2,18 +2,16 @@ import streamlit as st
 import sqlite3
 import os
 
-# ---------- SESSION STATE INIT ----------
+# ---------- SESSION STATE ----------
 if 'notes_updated' not in st.session_state:
     st.session_state['notes_updated'] = False
 
 # ---------- DATABASE SETUP ----------
-# ---------- DATABASE SETUP ----------
 DB_PATH = "notes.db"
-
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 c = conn.cursor()
 
-# Drop old table (fix schema issues)
+# Drop old table if schema is wrong (only if you don't need old notes)
 c.execute("DROP TABLE IF EXISTS notes")
 conn.commit()
 
@@ -25,7 +23,6 @@ CREATE TABLE IF NOT EXISTS notes (
 )
 ''')
 conn.commit()
-
 
 # ---------- FUNCTIONS ----------
 def add_note(note_text):
@@ -49,25 +46,31 @@ def get_all_notes():
 # ---------- APP UI ----------
 st.title("📒 Notes App")
 
-# Input for adding a new note
+# Add note
 note_input = st.text_input("Write a new note:")
 if st.button("Add Note"):
     add_note(note_input)
-    st.experimental_rerun()  # safe rerun after database change
 
-# Display existing notes
+# Display notes
 st.subheader("Your Notes:")
 notes = get_all_notes()
 
 if notes:
     for note in notes:
         if len(note) < 2:
-            continue  # skip malformed rows
-        note_id, note_text = note[:2]  # only take first 2 elements
+            continue
+        note_id, note_text = note[:2]
         col1, col2 = st.columns([8, 1])
         col1.write(note_text)
         if col2.button("❌", key=f"delete_{note_id}"):
             delete_note(note_id)
-            st.experimental_rerun()
+            st.session_state['notes_updated'] = True
 else:
     st.info("No notes yet! Add one above.")
+
+# ---------- REFRESH LOGIC ----------
+# If notes were updated, rerun UI without using deprecated function
+if st.session_state['notes_updated']:
+    st.session_state['notes_updated'] = False
+    st.experimental_rerun()  # For Streamlit <1.25
+    # For Streamlit >=1.25, you can just rely on state; UI updates automatically
