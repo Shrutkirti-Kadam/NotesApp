@@ -48,12 +48,15 @@ if st.button("Add Note"):
     st.experimental_rerun()
 
 # Display existing notes
+# Display existing notes
 st.subheader("Your Notes:")
 notes = get_all_notes()
 
 if notes:
     for note in notes:
-        note_id, note_text = note
+        if len(note) < 2:
+            continue  # skip malformed rows
+        note_id, note_text = note[:2]  # take only first 2 elements
         col1, col2 = st.columns([8, 1])
         col1.write(note_text)
         if col2.button("❌", key=f"delete_{note_id}"):
@@ -61,6 +64,7 @@ if notes:
             st.experimental_rerun()
 else:
     st.info("No notes yet! Add one above.")
+
 
 # ---------- SESSION STATE ----------
 if 'notes_updated' not in st.session_state:
