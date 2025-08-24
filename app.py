@@ -1,71 +1,58 @@
 import streamlit as st
 import sqlite3
 
-# --- Database Setup ---
-def init_db():
-    conn = sqlite3.connect("notes.db")  # File-based DB
-    c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS notes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            content TEXT NOT NULL
-        )
-    """)
-    conn.commit()
-    conn.close()
+# ---------- DATABASE SETUP ----------
+conn = sqlite3.connect("notes.db", check_same_thread=False)
+c = conn.cursor()
 
-def add_note(title, content):
-    conn = sqlite3.connect("notes.db")
-    c = conn.cursor()
-    c.execute("INSERT INTO notes (title, content) VALUES (?, ?)", (title, content))
-    conn.commit()
-    conn.close()
+c.execute('''
+CREATE TABLE IF NOT EXISTS notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    note TEXT
+)
+''')
+conn.commit()
 
-def get_notes():
-    conn = sqlite3.connect("notes.db")
-    c = conn.cursor()
-    c.execute("SELECT * FROM notes")
-    data = c.fetchall()
-    conn.close()
-    return data
+# ---------- FUNCTIONS ----------
+def add_note(note_text):
+    c.execute("INSERT INTO notes (note) VALUES (?)", (note_text,))
+    conn.commit()
+    st.session_state['notes_updated'] = True
 
 def delete_note(note_id):
-    conn = sqlite3.connect("notes.db")
-    c = conn.cursor()
     c.execute("DELETE FROM notes WHERE id=?", (note_id,))
     conn.commit()
-    conn.close()
+    st.session_state['notes_updated'] = True
 
-# --- Streamlit App ---
-st.title("📝 Notes App")
+def get_all_notes():
+    c.execute("SELECT * FROM notes")
+    return c.fetchall()
 
-# Initialize DB
-init_db()
+# ---------- APP UI ----------
+st.title("📒 Notes App")
 
-# Add new note
-st.subheader("Add a new note")
-title = st.text_input("Title")
-content = st.text_area("Content")
-
+# Input for adding a new note
+note_input = st.text_input("Write a new note:")
 if st.button("Add Note"):
-    if title and content:
-        add_note(title, content)
-        st.success("✅ Note added!")
+    if note_input.strip() != "":
+        add_note(note_input)
+        st.experimental_rerun()
     else:
-        st.error("⚠️ Please fill in both fields.")
+        st.warning("Please enter some text.")
 
-# Show existing notes
-st.subheader("Your Notes")
-notes = get_notes()
-
+# Display existing notes
+st.subheader("Your Notes:")
+notes = get_all_notes()
 if notes:
-    for note in notes:
-        st.markdown(f"### {note[1]}")
-        st.write(note[2])
-        if st.button("Delete", key=note[0]):
-            delete_note(note[0])
-            st.warning(f"❌ Deleted note: {note[1]}")
+    for note_id, note_text in notes:
+        col1, col2 = st.columns([8, 1])
+        col1.write(note_text)
+        if col2.button("❌", key=f"delete_{note_id}"):
+            delete_note(note_id)
             st.experimental_rerun()
 else:
-    st.info("No notes yet. Add one above 👆")
+    st.info("No notes yet! Add one above.")
+
+# ---------- SESSION STATE ----------
+if 'notes_updated' not in st.session_state:
+    st.session_state['notes_updated'] = False
